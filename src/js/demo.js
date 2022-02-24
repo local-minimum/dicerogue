@@ -19,3 +19,15 @@ function drawRandomBoard(chrs, width, height) {
         }
     }
 }
+
+
+function redrawBoard(chrs) {
+    const view = document.getElementById('view');
+    let i = 0;
+    const children = view.children;
+    while (i < children.length) {
+        const child = children[i];
+        child.innerText = randomItem(chrs);
+        i ++;
+    }
+}

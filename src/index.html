@@ -19,5 +19,12 @@
                 drawRandomBoard(['|', ' ', ' ', '—'], 40, 25);
             },
         )
+
+        setInterval(
+            function() {
+                redrawBoard(['|', ' ', ' ', '—'], 40, 25);
+            },
+            1000,
+        );
     </script>
 </html>
