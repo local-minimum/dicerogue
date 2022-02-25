@@ -13,16 +13,20 @@
         </div>
     </body>
     <script>
+        const data = {};
+
         document.addEventListener(
             'DOMContentLoaded',
             function() {
-                drawRandomBoard(['|', ' ', ' ', '—'], 40, 25);
+                addSettings(data);
+                drawEmptyBoard(data);
+                generateLevel(data);
             },
         )
 
         setInterval(
             function() {
-                redrawBoard(['|', ' ', ' ', '—'], 40, 25);
+                draw(data);
             },
             1000,
         );
