@@ -111,7 +111,7 @@ function isOfType(level, lb, ub, type) {
         return level[y][x].type === type;
     }
     const { x: targetX, y: targetY } = ub;
-    while (x != targetX && y != targetY) {
+    while (x != targetX || y != targetY) {
         if (level[y][x].type !== type) return false;
         x += (targetX - x > 0 ? 1 : 0);
         y += (targetY - y > 0 ? 1 : 0);
@@ -145,6 +145,7 @@ function addRoom(data, wantedSize, origin) {
     const room = {
         id: roomID,
         origin: origin ?? getRandomRoomSeed(data),
+        visited: roomID === 0 || true,
     };
     let xMin = room.origin.x;
     let xMax = xMin;
@@ -203,31 +204,39 @@ function addRoom(data, wantedSize, origin) {
             if (y === yMin || y === yMax) rowChr = wall.horizontal[0];
             for (let x=xMin; x<=xMax; x++) {
                 let chr = rowChr;
+                let corner = false;
                 if (x === xMin) {
                     if (y === yMin) {
                         chr = wall.corner.nw[0];
+                        corner = true;
                     } else if (y === yMax) {
                         chr = wall.corner.sw[0];
+                        corner = true;
                     } else if (chr === null) {
                         chr = wall.vertical[0];
                     }
                 } else if (x === xMax) {
                     if (y === yMin) {
                         chr = wall.corner.ne[0];
+                        corner = true;
                     } else if (y === yMax) {
                         chr = wall.corner.se[0];
+                        corner = true;
                     } else if (chr === null) {
                         chr = wall.vertical[0];
                     }
                 }
                 level[y][x] = {
                     type: chr === null ? TYPES.room : TYPES.wall,
-                    roomID: roomID,
+                    roomID: room.id,
                     chr: chr ?? ground[0],
+                    corner: chr !== null && corner,
                 };
-                fog[y][x] = false;
+                fog[y][x] = !room.visited;
             }
         }
+        room.lb = { x: xMin, y: yMin };
+        room.ub = { x: xMax, y: yMax };
         data.rooms.push(room);
         return true;
     }
@@ -237,7 +246,7 @@ function addRoom(data, wantedSize, origin) {
 function generateLevel(data) {
     const {
         settings: {
-            random: { range: randomRange, number },
+            random: { range: randomRange },
             size: { columns, rows },
             style: { outOfBounds },
         },
@@ -257,11 +266,16 @@ function generateLevel(data) {
         data.level.push(row);
         data.fog.push(fogRow);
     }
-    addRoom(data, { rows: 5, columns: 6 });
+    addRoom(data, { rows: randomRange(3, 6), columns: randomRange(3, 7) });
+    let wantRooms = randomRange(3, 8) + randomRange(3, 8) + randomRange(3, 8);
+    while (wantRooms > 0) {
+        addRoom(data, { rows: randomRange(3, 6), columns: randomRange(3, 7) } );
+        wantRooms -= 1;
+    }
 }
 
 function addSettings(data) {
-    const seed = 'test';
+    const seed = `test: ${Math.random()}`;
     const rng = getPRNG(seed);
     data.settings = {
         random: {
