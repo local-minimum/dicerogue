@@ -111,12 +111,12 @@ function isOfType(level, lb, ub, type) {
         return level[y][x].type === type;
     }
     const { x: targetX, y: targetY } = ub;
-    while (x != targetX || y != targetY) {
+    while (x < targetX || y < targetY) {
         if (level[y][x].type !== type) return false;
         x += (targetX - x > 0 ? 1 : 0);
         y += (targetY - y > 0 ? 1 : 0);
     }
-    return true;
+    return level[y][x].type === type;
 }
 
 function addRoom(data, wantedSize, origin) {
@@ -147,53 +147,61 @@ function addRoom(data, wantedSize, origin) {
         origin: origin ?? getRandomRoomSeed(data),
         visited: roomID === 0 || true,
     };
+    if (level[room.origin.y][room.origin.x].type !== TYPES.outOfBounds) {
+        console.error('Room origin in other room', room, level[room.origin.y][room.origin.x]);
+        return false;
+    }
     let xMin = room.origin.x;
     let xMax = xMin;
     let yMin = room.origin.y;
     let yMax = yMin;
     const maxIterations = (wantedSize.rows + wantedSize.columns) * 2 + 4;
-    const directions = ['W', 'N', 'E', 'S'];
+    const expandDirections = ['W', 'N', 'E', 'S'];
     for (let i=0; i<maxIterations; i++) {
-        if (directions.length === 0) break;
-        switch (directions[randomRange(0, directions.length)]) {
+        if (expandDirections.length === 0) break;
+        switch (expandDirections[randomRange(0, expandDirections.length)]) {
             case 'W':
+                console.log(roomID, 'W');
                 if (xMin > 0 && isOfType(level, { x : xMin - 1, y: yMin }, { x: xMin - 1, y: yMax }, TYPES.outOfBounds)) {
                     xMin -= 1;
                     if (xMax - xMin === wantedSize.columns + 1) {
-                        removeDim(directions, 'W', 'E');
+                        removeDim(expandDirections, 'W', 'E');
                     }
                 } else {
-                    directions.splice(directions.indexOf('W'), 1);
+                    expandDirections.splice(expandDirections.indexOf('W'), 1);
                 }
                 break;
             case 'E':
+                console.log(roomID, 'E');
                 if (xMax < columns - 1 && isOfType(level, { x : xMax + 1, y: yMin }, { x: xMax + 1, y: yMax }, TYPES.outOfBounds)) {
                     xMax += 1;
                     if (xMax - xMin === wantedSize.columns + 1) {
-                        removeDim(directions, 'E', 'W');
+                        removeDim(expandDirections, 'E', 'W');
                     }
                 } else {
-                    directions.splice(directions.indexOf('E'), 1);
+                    expandDirections.splice(expandDirections.indexOf('E'), 1);
                 }
                 break;
             case 'N':
+                console.log(roomID, 'N');
                 if (yMin > 0 && isOfType(level, { x: xMin, y: yMin - 1 }, { x: xMax, y: yMin - 1 }, TYPES.outOfBounds)) {
                     yMin -= 1;
                     if (yMax - yMin === wantedSize.rows + 1) {
-                        removeDim(directions, 'N', 'S');
+                        removeDim(expandDirections, 'N', 'S');
                     }
                 } else {
-                    directions.splice(directions.indexOf('N'));
+                    expandDirections.splice(expandDirections.indexOf('N'));
                 }
                 break;
             case 'S':
+                console.log(roomID, 'S');
                 if (yMax < rows - 1 && isOfType(level, { x: xMin, y: yMax + 1 }, { x: xMax, y: yMax + 1 }, TYPES.outOfBounds)) {
                     yMax += 1;
                     if (yMax - yMin === wantedSize.rows + 1) {
-                        removeDim(directions, 'S', 'N');
+                        removeDim(expandDirections, 'S', 'N');
                     }
                 } else {
-                    directions.splice(directions.indexOf('S'));
+                    expandDirections.splice(expandDirections.indexOf('S'));
                 }
                 break;
         }
@@ -225,6 +233,9 @@ function addRoom(data, wantedSize, origin) {
                     } else if (chr === null) {
                         chr = wall.vertical[0];
                     }
+                }
+                if (level[y][x].type !== TYPES.outOfBounds) {
+                    console.error('Overlapping rooms creating room', roomID, {x,  y}, level[y][x]);
                 }
                 level[y][x] = {
                     type: chr === null ? TYPES.room : TYPES.wall,
@@ -266,10 +277,10 @@ function generateLevel(data) {
         data.level.push(row);
         data.fog.push(fogRow);
     }
-    addRoom(data, { rows: randomRange(3, 6), columns: randomRange(3, 7) });
+    addRoom(data, { rows: randomRange(2, 6), columns: randomRange(2, 7) });
     let wantRooms = randomRange(3, 8) + randomRange(3, 8) + randomRange(3, 8);
     while (wantRooms > 0) {
-        addRoom(data, { rows: randomRange(3, 6), columns: randomRange(3, 7) } );
+        addRoom(data, { rows: randomRange(2, 6), columns: randomRange(2, 7) } );
         wantRooms -= 1;
     }
 }
