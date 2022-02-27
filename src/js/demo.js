@@ -158,7 +158,7 @@ function addRoom(data, wantedSize, origin) {
             case 'W':
                 if (xMin > 0 && isOfType(level, { x : xMin - 1, y: yMin }, { x: xMin - 1, y: yMax }, TYPES.outOfBounds)) {
                     xMin -= 1;
-                    if (xMax - xMin === wantedSize.columns + 2) {
+                    if (xMax - xMin === wantedSize.columns + 1) {
                         removeDim(directions, 'W', 'E');
                     }
                 } else {
@@ -168,7 +168,7 @@ function addRoom(data, wantedSize, origin) {
             case 'E':
                 if (xMax < columns - 1 && isOfType(level, { x : xMax + 1, y: yMin }, { x: xMax + 1, y: yMax }, TYPES.outOfBounds)) {
                     xMax += 1;
-                    if (xMax - xMin === wantedSize.columns + 2) {
+                    if (xMax - xMin === wantedSize.columns + 1) {
                         removeDim(directions, 'E', 'W');
                     }
                 } else {
@@ -178,7 +178,7 @@ function addRoom(data, wantedSize, origin) {
             case 'N':
                 if (yMin > 0 && isOfType(level, { x: xMin, y: yMin - 1 }, { x: xMax, y: yMin - 1 }, TYPES.outOfBounds)) {
                     yMin -= 1;
-                    if (yMax - yMin === wantedSize.rows + 2) {
+                    if (yMax - yMin === wantedSize.rows + 1) {
                         removeDim(directions, 'N', 'S');
                     }
                 } else {
@@ -188,7 +188,7 @@ function addRoom(data, wantedSize, origin) {
             case 'S':
                 if (yMax < rows - 1 && isOfType(level, { x: xMin, y: yMax + 1 }, { x: xMax, y: yMax + 1 }, TYPES.outOfBounds)) {
                     yMax += 1;
-                    if (yMax - yMin === wantedSize.rows + 2) {
+                    if (yMax - yMin === wantedSize.rows + 1) {
                         removeDim(directions, 'S', 'N');
                     }
                 } else {
@@ -197,7 +197,6 @@ function addRoom(data, wantedSize, origin) {
                 break;
         }
     }
-    console.log(yMax - yMin, xMax - xMin, yMin, xMax);
     if (yMax - yMin >= 4 && xMax - xMin >= 4) {
         for (let y=yMin; y<=yMax; y++) {
             let rowChr = null;
@@ -238,7 +237,9 @@ function addRoom(data, wantedSize, origin) {
 function generateLevel(data) {
     const {
         settings: {
+            random: { range: randomRange, number },
             size: { columns, rows },
+            style: { outOfBounds },
         },
     } = data;
     data.level = [];
@@ -247,7 +248,10 @@ function generateLevel(data) {
         const row = [];
         const fogRow = [];
         for (let x=0; x < columns; x++) {
-            row.push({ type: TYPES.outOfBounds });
+            row.push({
+                type: TYPES.outOfBounds,
+                chr: outOfBounds[randomRange(0, outOfBounds.length)],
+            });
             fogRow.push(true);
         }
         data.level.push(row);
@@ -283,6 +287,7 @@ function addSettings(data) {
             },
             ground: [' '],
             fog: ['⌯', '·', '˓', '˒'],
+            outOfBounds: ['▓', '▒', '▓'],
         },
         seed: 'All is random',
     };
