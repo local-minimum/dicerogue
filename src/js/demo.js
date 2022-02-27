@@ -119,6 +119,40 @@ function isOfType(level, lb, ub, type) {
     return level[y][x].type === type;
 }
 
+function connectRooms(data, roomID) {
+    const {
+        settings: {
+            size: {  columns, rows },
+            random: {
+                pick,
+                range: randomRange,
+            },
+        },
+    } = data;
+    const room = data.rooms[roomID];
+    const directions = pick(
+        ['N', 'W', 'S', 'E']
+            .filter((dir) => {
+                switch (dir) {
+                    case 'N':
+                        return room.exits.n === undefined
+                            && room.lb.y > 0;
+                    case 'S':
+                        return room.exits.s === undefined
+                            && room.ub.y < columns - 1;
+                    case 'W':
+                        return room.exits.w === undefined
+                            && room.lb.x > 0;
+                    case 'E':
+                        return room.exits.e === undefined
+                            && room.ub.x < columns - 1;
+                }
+            }),
+        randomRange(1, 3) + randomRange(0, 3)
+    )
+    console.log(roomID, directions);
+}
+
 function addRoom(data, wantedSize, origin) {
     const removeDim = (dirs, primary, secondary) => {
         dirs.splice(dirs.indexOf(primary), 1);
@@ -146,6 +180,7 @@ function addRoom(data, wantedSize, origin) {
         id: roomID,
         origin: origin ?? getRandomRoomSeed(data),
         visited: roomID === 0 || true,
+        exits: {},
     };
     if (level[room.origin.y][room.origin.x].type !== TYPES.outOfBounds) {
         console.error('Room origin in other room', room, level[room.origin.y][room.origin.x]);
@@ -161,7 +196,6 @@ function addRoom(data, wantedSize, origin) {
         if (expandDirections.length === 0) break;
         switch (expandDirections[randomRange(0, expandDirections.length)]) {
             case 'W':
-                console.log(roomID, 'W');
                 if (xMin > 0 && isOfType(level, { x : xMin - 1, y: yMin }, { x: xMin - 1, y: yMax }, TYPES.outOfBounds)) {
                     xMin -= 1;
                     if (xMax - xMin === wantedSize.columns + 1) {
@@ -172,7 +206,6 @@ function addRoom(data, wantedSize, origin) {
                 }
                 break;
             case 'E':
-                console.log(roomID, 'E');
                 if (xMax < columns - 1 && isOfType(level, { x : xMax + 1, y: yMin }, { x: xMax + 1, y: yMax }, TYPES.outOfBounds)) {
                     xMax += 1;
                     if (xMax - xMin === wantedSize.columns + 1) {
@@ -183,7 +216,6 @@ function addRoom(data, wantedSize, origin) {
                 }
                 break;
             case 'N':
-                console.log(roomID, 'N');
                 if (yMin > 0 && isOfType(level, { x: xMin, y: yMin - 1 }, { x: xMax, y: yMin - 1 }, TYPES.outOfBounds)) {
                     yMin -= 1;
                     if (yMax - yMin === wantedSize.rows + 1) {
@@ -194,7 +226,6 @@ function addRoom(data, wantedSize, origin) {
                 }
                 break;
             case 'S':
-                console.log(roomID, 'S');
                 if (yMax < rows - 1 && isOfType(level, { x: xMin, y: yMax + 1 }, { x: xMax, y: yMax + 1 }, TYPES.outOfBounds)) {
                     yMax += 1;
                     if (yMax - yMin === wantedSize.rows + 1) {
@@ -283,6 +314,9 @@ function generateLevel(data) {
         addRoom(data, { rows: randomRange(2, 6), columns: randomRange(2, 7) } );
         wantRooms -= 1;
     }
+    for (let i=0; i<data.rooms.length; i++) {
+        connectRooms(data, i);
+    }
 }
 
 function addSettings(data) {
@@ -294,6 +328,13 @@ function addSettings(data) {
             _rng: rng,
             number: () => rng(),
             range: (min, exclusiveMax) => Math.min(Math.floor(min + (exclusiveMax - min) * rng()), exclusiveMax),
+            pick: (arr, count) => {
+                const items = [...(new Array(arr.length).keys())];
+                items.sort(() => rng() > 0.5);
+                return items
+                    .slice(0, count)
+                    .map((i) => arr[i]);
+            },
         },
         size: {
             columns: 40,
@@ -304,15 +345,16 @@ function addSettings(data) {
                 vertical: ['|', 'ǁ'],
                 horizontal: ['—'],
                 corner: {
-                    nw: ['⌈'],
-                    ne: ['⌉'],
-                    sw: ['⌊'],
-                    se: ['⌋'],
+                    nw: ['⌌', '⌈'],
+                    ne: ['⌍', '⌉'],
+                    sw: ['⌎','⌊'],
+                    se: ['⌏','⌋'],
                 },
             },
             ground: [' '],
             fog: ['⌯', '·', '˓', '˒'],
             outOfBounds: ['▓', '▒', '▓'],
+            door: ['🀲', '🁪'],
         },
         seed: 'All is random',
     };
