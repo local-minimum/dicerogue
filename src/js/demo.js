@@ -1,9 +1,3 @@
-/*
-function randomItem(arr, randomRange) {
-    return arr[randomRange(0, arr.length)];
-}
-*/
-
 function createTile(chr) {
     const tile = document.createElement('span');
     tile.className = 'tile';
@@ -21,19 +15,6 @@ function drawEmptyBoard({ settings: { size: { columns, rows } } }) {
         }
     }
 }
-
-/*
-function redrawBoard(chrs) {
-    const view = document.getElementById('view');
-    let i = 0;
-    const children = view.children;
-    while (i < children.length) {
-        const child = children[i];
-        child.innerText = randomItem(chrs);
-        i ++;
-    }
-}
-*/
 
 function draw({
     settings: {
@@ -119,6 +100,83 @@ function isOfType(level, lb, ub, type) {
     return level[y][x].type === type;
 }
 
+function selectExit(level, { lb, ub }, direction, randomNumber) {
+    switch (direction) {
+        case 'n':
+            return [...new Array(ub.x - lb.x - 1).keys()]
+                .map((i) => ({ x: i + lb.x + 1, y: lb.y }))
+                .map(({ x, y }) => {
+                    const { type, corner } = level[y - 1][x];
+                    return {
+                        x,
+                        y,
+                        prio: type === TYPES.outOfBounds ? 1 : (corner ? -1 : 2),
+                        next: { x, y: y - 1 },
+                    };
+                })
+                .filter(({ prio }) => prio > 0)
+                .sort(() => randomNumber() > 0.5)
+                .sort(({ prio: a }, { prio: b }) => b - a)[0];
+        case 's':
+            return [...new Array(ub.x - lb.x - 1).keys()]
+                .map((i) => ({ x: i + lb.x + 1, y: ub.y }))
+                .map(({ x, y }) => {
+                    const { type, corner } = level[y + 1][x];
+                    return {
+                        x,
+                        y,
+                        prio: type === TYPES.outOfBounds ? 1 : (corner ? -1 : 2),
+                        next: { x, y: y + 1 },
+                    };
+                })
+                .filter(({ prio }) => prio > 0)
+                .sort(() => randomNumber() > 0.5)
+                .sort(({ prio: a }, { prio: b }) => b - a)[0];
+        case 'e':
+            return [...new Array(ub.y - lb.y - 1).keys()]
+                .map((i) => ({ y: i + lb.y + 1, x: ub.x }))
+                .map(({ x, y }) => {
+                    const { type, corner } = level[y][x + 1];
+                    return {
+                        x,
+                        y,
+                        prio: type === TYPES.outOfBounds ? 1 : (corner ? -1 : 2),
+                        next: { x: x + 1, y },
+                    };
+                })
+                .filter(({ prio }) => prio > 0)
+                .sort(() => randomNumber() > 0.5)
+                .sort(({ prio: a }, { prio: b }) => b - a)[0];
+        case 'w':
+            return [...new Array(ub.y - lb.y - 1).keys()]
+                .map((i) => ({ y: i + lb.y + 1, x: lb.x }))
+                .map(({ x, y }) => {
+                    const { type, corner } = level[y][x - 1];
+                    return {
+                        x,
+                        y,
+                        prio: type === TYPES.outOfBounds ? 1 : (corner ? -1 : 2),
+                        next: { x: x - 1, y },
+                    };
+                })
+                .filter(({ prio }) => prio > 0)
+                .sort(() => randomNumber() > 0.5)
+                .sort(({ prio: a }, { prio: b }) => b - a)[0];
+    }
+}
+
+function reverseDirection(dir) {
+    switch (dir) {
+        case 'n':
+            return 's';
+        case 's':
+            return 'n';
+        case 'w':
+            return 'e';
+        case 'e':
+            return 'w';
+    }
+}
 function connectRooms(data, roomID) {
     const {
         settings: {
@@ -126,31 +184,49 @@ function connectRooms(data, roomID) {
             random: {
                 pick,
                 range: randomRange,
+                number: randomNumber,
             },
+            style: { door },
         },
     } = data;
     const room = data.rooms[roomID];
     const directions = pick(
-        ['N', 'W', 'S', 'E']
+        ['n', 's', 'w', 'e']
             .filter((dir) => {
                 switch (dir) {
-                    case 'N':
+                    case 'n':
                         return room.exits.n === undefined
                             && room.lb.y > 0;
-                    case 'S':
+                    case 's':
                         return room.exits.s === undefined
-                            && room.ub.y < columns - 1;
-                    case 'W':
+                            && room.ub.y < rows - 1;
+                    case 'w':
                         return room.exits.w === undefined
                             && room.lb.x > 0;
-                    case 'E':
+                    case 'e':
                         return room.exits.e === undefined
                             && room.ub.x < columns - 1;
                 }
             }),
         randomRange(1, 3) + randomRange(0, 3)
     )
-    console.log(roomID, directions);
+    directions
+        .forEach((dir) => {
+            const exit = selectExit(data.level, room, dir, randomNumber);
+            if (exit !== undefined) {
+                data.level[exit.y][exit.x].chr = door[dir][0];
+                data.level[exit.y][exit.x].door = true;
+                room.exits[dir] = [...(room.exits[dir] ?? []), { x: exit.x, y: exit.y }];
+                if (exit.prio === 2) {
+                    const other = data.level[exit.next.y][exit.next.x];
+                    const otherDir = reverseDirection(dir);
+                    other.chr = door[otherDir][0];
+                    other.door = true;
+                    const otherRoomExits = data.rooms[other.roomID].exits;
+                    otherRoomExits[otherDir] = [...(otherRoomExits[otherDir] ?? []), exit.next];
+                }
+            }
+        });
 }
 
 function addRoom(data, wantedSize, origin) {
@@ -354,7 +430,12 @@ function addSettings(data) {
             ground: [' '],
             fog: ['⌯', '·', '˓', '˒'],
             outOfBounds: ['▓', '▒', '▓'],
-            door: ['🀲', '🁪'],
+            door: {
+                n: ['🀲'],
+                s: ['🀲'],
+                w: ['🁪'],
+                e: ['🁪'],
+            },
         },
         seed: 'All is random',
     };
