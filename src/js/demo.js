@@ -110,7 +110,7 @@ function selectExit(level, { lb, ub }, direction, randomNumber) {
                     return {
                         x,
                         y,
-                        prio: type === TYPES.outOfBounds ? 1 : (corner ? -1 : 2),
+                        prio: type === TYPES.wall ? (corner ? -1 : 2) : 1,
                         next: { x, y: y - 1 },
                     };
                 })
@@ -125,7 +125,7 @@ function selectExit(level, { lb, ub }, direction, randomNumber) {
                     return {
                         x,
                         y,
-                        prio: type === TYPES.outOfBounds ? 1 : (corner ? -1 : 2),
+                        prio: type === TYPES.wall ? (corner ? -1 : 2) : 1,
                         next: { x, y: y + 1 },
                     };
                 })
@@ -140,7 +140,7 @@ function selectExit(level, { lb, ub }, direction, randomNumber) {
                     return {
                         x,
                         y,
-                        prio: type === TYPES.outOfBounds ? 1 : (corner ? -1 : 2),
+                        prio: type === TYPES.wall ? (corner ? -1 : 2) : 1,
                         next: { x: x + 1, y },
                     };
                 })
@@ -155,7 +155,7 @@ function selectExit(level, { lb, ub }, direction, randomNumber) {
                     return {
                         x,
                         y,
-                        prio: type === TYPES.outOfBounds ? 1 : (corner ? -1 : 2),
+                        prio: type === TYPES.wall ? (corner ? -1 : 2) : 1,
                         next: { x: x - 1, y },
                     };
                 })
@@ -177,6 +177,121 @@ function reverseDirection(dir) {
             return 'w';
     }
 }
+
+function addRoomDoor({ level, rooms, settings: { style: { door } } }, x, y) {
+    const pos = level[y][x];
+    const room = rooms[pos.roomID];
+    if (room === undefined) {
+        console.error('No room at', x, y, pos);
+        return
+    }
+    const { exits } = room;
+    let dir = '';
+    if (y === room.lb.y) {
+        dir = 'n';
+    } else if (y === room.ub.y) {
+        dir = 's';
+    } else if (x === room.lb.x) {
+        dir = 'w';
+    } else {
+        dir = 'e';
+    }
+    exits[dir] = [...(exits[dir] ?? []), { x, y }];
+    pos.chr = door[dir][0];
+    pos.door = true;
+}
+
+
+function wallSides(data, x, y, dir) {
+    const { fog, settings: { size: { columns, rows, } } } = data;
+    const plusY = y + dir.x;
+    const minY = y - dir.x;
+    const plusX = x + dir.y;
+    const minX = x - dir.y;
+    if (plusY >= 0 && plusY < rows && plusX >= 0 && plusX < columns) {
+        fog[plusY][plusX] = false;
+    }
+    if (minY >= 0 && minY < rows && minX >= 0 && minX < columns) {
+        fog[minY][minX] = false;
+    }
+}
+
+function rotateDirection(randomNumber, { x, y }, t=0.7) {
+    const val = randomNumber();
+    if (val < t) {
+        return { x, y };
+    }
+    if (val < (1 - t) / 2 + t) {
+        return {x: -y, y: x };
+    }
+    return { x: y, y: x };
+}
+
+function randomWalk(data, exit, maxResets=20, maxDepth=40) {
+    const {
+        level, fog,
+        settings: {
+            size: { columns, rows },
+            style: { ground, outOfBounds },
+            random: { number: randomNumber, range: randomRange },
+        },
+    } = data;
+    const startRoomID = level[exit.y][exit.x].roomID;
+    let dir = { x: exit.next.x - exit.x, y: exit.next.y - exit.y };
+    let x = exit.x + dir.x;
+    let y = exit.y + dir.y;
+    let depth = 0;
+    let tries = 0;
+    let xs = [];
+    let ys = [];
+    while (true) {
+        level[y][x].chr = ground[0];
+        level[y][x].type = TYPES.hall;
+        fog[y][x] = false;
+        xs.push(x);
+        ys.push(y);
+        wallSides(data, x, y, dir);
+
+        x += dir.x;
+        y += dir.y;
+        const invalid = (
+            x < 1
+            || x >= columns - 1
+            || y < 1
+            || y >= rows - 1
+            || level[y][x].corner
+            || depth > maxDepth
+        );
+        if (!invalid && level[y][x].type === TYPES.wall && level[y][x].roomID !== startRoomID) {
+            addRoomDoor(data, x, y);
+            return true;
+        }
+        if (invalid || level[y][x].type !== TYPES.outOfBounds) {
+            // reset
+            tries += 1;
+            if (tries > maxResets) {
+                return false;
+            }
+            const fromPos = randomRange(2, Math.floor(xs.length / 2));
+            xs.forEach((rx, i) => {
+                if (i < fromPos) return;
+                const ry = ys[i];
+                level[ry][rx].chr = outOfBounds[randomRange(0, outOfBounds.length)];
+                level[ry][rx].type = TYPES.outOfBounds;
+            });
+            xs = xs.slice(0, fromPos);
+            ys = ys.slice(0, fromPos);
+            y = ys[ys.length - 1];
+            x = xs[xs.length - 1];
+            if (x === undefined || y === undefined) return false;
+            depth = xs.length;
+        }
+        wallSides(data, x, y, dir);
+        dir = rotateDirection(randomNumber, dir);
+        depth += 1;
+    }
+};
+
 function connectRooms(data, roomID) {
     const {
         settings: {
@@ -208,22 +323,22 @@ function connectRooms(data, roomID) {
                             && room.ub.x < columns - 1;
                 }
             }),
-        randomRange(1, 3) + randomRange(0, 3)
+        randomRange(1, 2) + randomRange(0, 3)
     )
     directions
         .forEach((dir) => {
             const exit = selectExit(data.level, room, dir, randomNumber);
             if (exit !== undefined) {
-                data.level[exit.y][exit.x].chr = door[dir][0];
-                data.level[exit.y][exit.x].door = true;
-                room.exits[dir] = [...(room.exits[dir] ?? []), { x: exit.x, y: exit.y }];
+                addRoomDoor(data, exit.x, exit.y);
                 if (exit.prio === 2) {
-                    const other = data.level[exit.next.y][exit.next.x];
-                    const otherDir = reverseDirection(dir);
-                    other.chr = door[otherDir][0];
-                    other.door = true;
-                    const otherRoomExits = data.rooms[other.roomID].exits;
-                    otherRoomExits[otherDir] = [...(otherRoomExits[otherDir] ?? []), exit.next];
+                    addRoomDoor(data, exit.next.x, exit.next.y);
+                } else {
+                    if (!randomWalk(data, exit)) {
+                        const undoPos = data.level[exit.y][exit.x];
+                        undoPos.door = false;
+                        undoPos.type = TYPES.wall;
+                        // remove door
+                    }
                 }
             }
         });
@@ -236,7 +351,6 @@ function addRoom(data, wantedSize, origin) {
         if (idxE >= 0) {
             dirs.splice(dirs.indexOf(secondary), 1);
         }
-
     }
 
     const {
@@ -385,7 +499,7 @@ function generateLevel(data) {
         data.fog.push(fogRow);
     }
     addRoom(data, { rows: randomRange(2, 6), columns: randomRange(2, 7) });
-    let wantRooms = randomRange(3, 8) + randomRange(3, 8) + randomRange(3, 8);
+    let wantRooms = 10 + randomRange(3, 8) + randomRange(3, 8) + randomRange(3, 8);
     while (wantRooms > 0) {
         addRoom(data, { rows: randomRange(2, 6), columns: randomRange(2, 7) } );
         wantRooms -= 1;
