@@ -83,6 +83,10 @@ function getRandomPositionOfType(data, type) {
 
 function getRandomRoomSeed(data) {
     const { x, y } = getRandomPositionOfType(data, TYPES.outOfBounds);
+    /*
+    data.level[y][x].chr = 'X';
+    data.fog[y][x] = false;
+    */
     return { x, y };
 }
 
@@ -201,6 +205,40 @@ function addRoomDoor({ level, rooms, settings: { style: { door } } }, x, y) {
     pos.door = true;
 }
 
+function makeWall({ level, rooms, settings: { style: { wall } } }, x, y) {
+    const pos = level[y][x];
+    const roomID = pos.roomID;
+    if (roomID === undefined) return;
+    const { lb, ub } = rooms[roomID];
+    if (x === lb.x) {
+        if (y === lb.y) {
+            pos.chr = wall.corner.nw[0];
+            pos.corner = true;
+        } else if (y === ub.y) {
+            pos.chr = wall.corner.sw[0];
+            pos.corner = true;
+        } else {
+            pos.chr = wall.vertical[0];
+        }
+    } else if (x === ub.x) {
+        if (y === lb.y) {
+            pos.chr = wall.corner.ne[0];
+            pos.corner = true;
+        } else if (y === ub.y) {
+            pos.chr = wall.corner.se[0];
+            pos.corner = true;
+        } else {
+            pos.chr = wall.vertical[0];
+        }
+    } else if (y === lb.y || y === ub.y) {
+        pos.chr = wall.horizontal[0];
+    } else {
+        return;
+    }
+    pos.door = false;
+    pos.type = TYPES.wall;
+}
+
 
 function wallSides(data, x, y, dir) {
     const { fog, settings: { size: { columns, rows, } } } = data;
@@ -227,6 +265,29 @@ function rotateDirection(randomNumber, { x, y }, t=0.7) {
     return { x: y, y: x };
 }
 
+function connectsToHallway({ level, settings: { size: { columns, rows } } }, x, y, xs, ys) {
+    return [
+        [1, 0],
+        [0, 1],
+        [-1, 0],
+        [0, 1],
+    ]
+        .map(([oX, oY]) => ([x + oX, y + oY]))
+        .some(([pX, pY]) => (
+            pX >= 0 && pY >= 0 && pX < columns && pY < rows
+            && !xs.some((xi, i) => (xi === pX && ys[i] === pY))
+            && level[pY][pX].type === TYPES.hall
+        ));
+
+}
+
+function directionFromPosition(x, y, xs, ys, exit) {
+    if (xs.length > 1) {
+        return { x: x - xs[xs.length - 2], y: y - ys[ys.length - 2] };
+    }
+    return { x: x - exit.x, y: y - exit.y };
+}
+
 function randomWalk(data, exit, maxResets=20, maxDepth=40) {
     const {
         level, fog,
@@ -251,7 +312,9 @@ function randomWalk(data, exit, maxResets=20, maxDepth=40) {
         xs.push(x);
         ys.push(y);
         wallSides(data, x, y, dir);
-
+        if (connectsToHallway(data, x, y, xs, ys)) {
+            return true;
+        }
         x += dir.x;
         y += dir.y;
         const invalid = (
@@ -270,6 +333,11 @@ function randomWalk(data, exit, maxResets=20, maxDepth=40) {
             // reset
             tries += 1;
             if (tries > maxResets) {
+                xs.forEach((rx, i) => {
+                    const ry = ys[i];
+                    level[ry][rx].chr = outOfBounds[randomRange(0, outOfBounds.length)];
+                    level[ry][rx].type = TYPES.outOfBounds;
+                });
                 return false;
             }
             const fromPos = randomRange(2, Math.floor(xs.length / 2));
@@ -284,6 +352,7 @@ function randomWalk(data, exit, maxResets=20, maxDepth=40) {
             y = ys[ys.length - 1];
             x = xs[xs.length - 1];
             if (x === undefined || y === undefined) return false;
+            dir = directionFromPosition(x, y, xs, ys, exit);
             depth = xs.length;
         }
         wallSides(data, x, y, dir);
@@ -334,10 +403,7 @@ function connectRooms(data, roomID) {
                     addRoomDoor(data, exit.next.x, exit.next.y);
                 } else {
                     if (!randomWalk(data, exit)) {
-                        const undoPos = data.level[exit.y][exit.x];
-                        undoPos.door = false;
-                        undoPos.type = TYPES.wall;
-                        // remove door
+                        makeWall(data, exit.x, exit.y);
                     }
                 }
             }
@@ -352,7 +418,6 @@ function addRoom(data, wantedSize, origin) {
             dirs.splice(dirs.indexOf(secondary), 1);
         }
     }
-
     const {
         settings: {
             size: { columns, rows },
@@ -388,7 +453,7 @@ function addRoom(data, wantedSize, origin) {
             case 'W':
                 if (xMin > 0 && isOfType(level, { x : xMin - 1, y: yMin }, { x: xMin - 1, y: yMax }, TYPES.outOfBounds)) {
                     xMin -= 1;
-                    if (xMax - xMin === wantedSize.columns + 1) {
+                    if (xMax - xMin === wantedSize.columns + 2) {
                         removeDim(expandDirections, 'W', 'E');
                     }
                 } else {
@@ -398,7 +463,7 @@ function addRoom(data, wantedSize, origin) {
             case 'E':
                 if (xMax < columns - 1 && isOfType(level, { x : xMax + 1, y: yMin }, { x: xMax + 1, y: yMax }, TYPES.outOfBounds)) {
                     xMax += 1;
-                    if (xMax - xMin === wantedSize.columns + 1) {
+                    if (xMax - xMin === wantedSize.columns + 2) {
                         removeDim(expandDirections, 'E', 'W');
                     }
                 } else {
@@ -408,7 +473,7 @@ function addRoom(data, wantedSize, origin) {
             case 'N':
                 if (yMin > 0 && isOfType(level, { x: xMin, y: yMin - 1 }, { x: xMax, y: yMin - 1 }, TYPES.outOfBounds)) {
                     yMin -= 1;
-                    if (yMax - yMin === wantedSize.rows + 1) {
+                    if (yMax - yMin === wantedSize.rows + 2) {
                         removeDim(expandDirections, 'N', 'S');
                     }
                 } else {
@@ -418,7 +483,7 @@ function addRoom(data, wantedSize, origin) {
             case 'S':
                 if (yMax < rows - 1 && isOfType(level, { x: xMin, y: yMax + 1 }, { x: xMax, y: yMax + 1 }, TYPES.outOfBounds)) {
                     yMax += 1;
-                    if (yMax - yMin === wantedSize.rows + 1) {
+                    if (yMax - yMin === wantedSize.rows + 2) {
                         removeDim(expandDirections, 'S', 'N');
                     }
                 } else {
@@ -428,6 +493,9 @@ function addRoom(data, wantedSize, origin) {
         }
     }
     if (yMax - yMin >= 4 && xMax - xMin >= 4) {
+        room.lb = { x: xMin, y: yMin };
+        room.ub = { x: xMax, y: yMax };
+        data.rooms.push(room);
         for (let y=yMin; y<=yMax; y++) {
             let rowChr = null;
             if (y === yMin || y === yMax) rowChr = wall.horizontal[0];
@@ -467,10 +535,9 @@ function addRoom(data, wantedSize, origin) {
                 fog[y][x] = !room.visited;
             }
         }
-        room.lb = { x: xMin, y: yMin };
-        room.ub = { x: xMax, y: yMax };
-        data.rooms.push(room);
         return true;
+    } else {
+        console.warn('Failed to make a room', [xMin, yMin], [xMax, yMax]);
     }
     return false;
 }
