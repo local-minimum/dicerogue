@@ -637,6 +637,12 @@ function addSettings(data) {
                 e: ['🁪'],
             },
             player: ['💃'],
+            enemies: ['👀', '💋', '👣', '🌞', '💩', '💸', '🗿', '🖕', '🎅'],
+            shrine: ['🎲'],
+            fight: ['🔥'],
+            attack: ['🗡'],
+            defence: ['🕀'],
+            initiative: ['🕊'],
         },
         seed: 'All is random',
     };
