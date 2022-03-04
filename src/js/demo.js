@@ -19,25 +19,34 @@ function drawEmptyBoard({ settings: { size: { columns, rows } } }) {
 function draw({
     settings: {
         random: { range: randomRange },
-        size: { columns, rows },
+        size: { columns },
         style,
     },
     level,
     fog,
+    player,
 }) {
     let row = 0;
     let column = 0;
     const view = document.getElementById('view');
     let i = 0;
     const children = view.children;
+    const positionChr = (foggy, pos, x, y) => {
+        if (x === player.x && y === player.y) {
+            return style.player[0];
+        }
+        return foggy
+            ? style.fog[randomRange(0, style.fog.length)]
+            : (pos.chr ?? '?');
+
+    }
+
     while (i < children.length) {
         // Update DOM element
         const child = children[i];
         const pos = level[row][column];
         const foggy  = fog[row][column];
-        child.innerText = foggy
-            ? style.fog[randomRange(0, style.fog.length)]
-            : (pos.chr ?? '?');
+        child.innerText = positionChr(foggy, pos, column, row);
 
         // Update postions
         i ++;
@@ -47,6 +56,7 @@ function draw({
             row ++;
         }
     }
+    player.moved = false;
 }
 
 const TYPES = {
@@ -54,6 +64,7 @@ const TYPES = {
     room: 'ROOM',
     hall: 'HALL',
     wall: 'WALL',
+    door: 'DOOR',
 };
 
 function getRandomPosition(data) {
@@ -202,7 +213,7 @@ function addRoomDoor({ level, rooms, settings: { style: { door } } }, x, y) {
     }
     exits[dir] = [...(exits[dir] ?? []), { x, y }];
     pos.chr = door[dir][0];
-    pos.door = true;
+    pos.type = TYPES.door;
 }
 
 function makeWall({ level, rooms, settings: { style: { wall } } }, x, y) {
@@ -235,7 +246,6 @@ function makeWall({ level, rooms, settings: { style: { wall } } }, x, y) {
     } else {
         return;
     }
-    pos.door = false;
     pos.type = TYPES.wall;
 }
 
@@ -247,10 +257,10 @@ function wallSides(data, x, y, dir) {
     const plusX = x + dir.y;
     const minX = x - dir.y;
     if (plusY >= 0 && plusY < rows && plusX >= 0 && plusX < columns) {
-        fog[plusY][plusX] = false;
+        // fog[plusY][plusX] = false;
     }
     if (minY >= 0 && minY < rows && minX >= 0 && minX < columns) {
-        fog[minY][minX] = false;
+        // fog[minY][minX] = false;
     }
 }
 
@@ -308,7 +318,7 @@ function randomWalk(data, exit, maxResets=20, maxDepth=40) {
     while (true) {
         level[y][x].chr = ground[0];
         level[y][x].type = TYPES.hall;
-        fog[y][x] = false;
+        // fog[y][x] = false;
         xs.push(x);
         ys.push(y);
         wallSides(data, x, y, dir);
@@ -370,7 +380,6 @@ function connectRooms(data, roomID) {
                 range: randomRange,
                 number: randomNumber,
             },
-            style: { door },
         },
     } = data;
     const room = data.rooms[roomID];
@@ -434,7 +443,7 @@ function addRoom(data, wantedSize, origin) {
     const room = {
         id: roomID,
         origin: origin ?? getRandomRoomSeed(data),
-        visited: roomID === 0 || true,
+        visited: false,
         exits: {},
     };
     if (level[room.origin.y][room.origin.x].type !== TYPES.outOfBounds) {
@@ -532,7 +541,7 @@ function addRoom(data, wantedSize, origin) {
                     chr: chr ?? ground[0],
                     corner: chr !== null && corner,
                 };
-                fog[y][x] = !room.visited;
+                // fog[y][x] = !room.visited;
             }
         }
         return true;
@@ -574,6 +583,16 @@ function generateLevel(data) {
     for (let i=0; i<data.rooms.length; i++) {
         connectRooms(data, i);
     }
+    const startRoom = data.rooms[randomRange(0, data.rooms.length)];
+
+    data.player = {
+        x: randomRange(startRoom.lb.x + 1, startRoom.ub.x),
+        y: randomRange(startRoom.lb.y + 1, startRoom.ub.y),
+        moved: false,
+    };
+    revealRoom(startRoom, data.fog);
+    revealPosition(data.player.x, data.player.y, { columns, rows }, data.fog);
+    data.ready = true;
 }
 
 function addSettings(data) {
@@ -617,7 +636,73 @@ function addSettings(data) {
                 w: ['🁪'],
                 e: ['🁪'],
             },
+            player: ['💃'],
         },
         seed: 'All is random',
     };
 }
+
+function validPosition(x, y, { rows, columns}, level, allowedTypes) {
+    return x >= 0 && x < columns && y >= 0 && y < rows && allowedTypes.some(t => level[y][x].type === t);
+}
+
+function revealRoom({ lb, ub }, fog) {
+    for (let y = lb.y; y<=ub.y; y++) {
+        for (let x = lb.x; x<=ub.x; x++) {
+            fog[y][x] = false;
+        }
+    }
+}
+
+function revealPosition(x, y, { rows, columns }, fog) {
+    const bounded = (xi, yi) => xi >= 0 && xi < columns && yi >= 0 && yi < rows;
+    for (let offY = -2; offY <= 2; offY++) {
+        for (let offX = -2; offX <= 2; offX++) {
+            const aOffX = Math.abs(offX)
+            if (aOffX === Math.abs(offY) && aOffX === 2) continue;
+            const curX = x + offX;
+            const curY = y + offY;
+            if (bounded(curX, curY)) {
+                fog[curY][curX] = false;
+            }
+        }
+    }
+}
+
+const handleKeyPress = (evt, { player, ready, level, rooms, fog, settings: { size, style: { ground } } }) => {
+    if (!ready || player.moved) return;
+    let { x, y, roomID } = player;
+    switch (evt.which ?? evt.keyCode) {
+        case 38: // UP
+            y -= 1;
+            break;
+        case 40: // DOWN
+            y += 1;
+            break;
+        case 37: // LEFT
+            x -= 1;
+            break;
+        case 39: // RIGHT
+            x += 1;
+            break;
+    }
+    if (validPosition(x, y, size, level, [TYPES.room, TYPES.door, TYPES.hall])) {
+        const pos = level[y][x];
+        if (pos.type === TYPES.door) {
+            pos.type = TYPES.room;
+            pos.chr = ground[0];
+        }
+        if (pos.roomID !== undefined && pos.roomID != roomID) {
+            const room = rooms[pos.roomID];
+            if (!room.visited) {
+                revealRoom(rooms[pos.roomID], fog);
+                room.visited = true;
+            }
+        }
+        revealPosition(x, y, size, fog);
+        player.moved = true;
+        player.x = x;
+        player.y = y;
+        player.roomID = pos.roomID;
+    }
+};
