@@ -249,7 +249,7 @@ function makeWall({ level, rooms, settings: { style: { wall } } }, x, y) {
     pos.type = TYPES.wall;
 }
 
-
+/*
 function wallSides(data, x, y, dir) {
     const { fog, settings: { size: { columns, rows, } } } = data;
     const plusY = y + dir.x;
@@ -263,6 +263,7 @@ function wallSides(data, x, y, dir) {
         // fog[minY][minX] = false;
     }
 }
+*/
 
 function rotateDirection(randomNumber, { x, y }, t=0.7) {
     const val = randomNumber();
@@ -321,7 +322,7 @@ function randomWalk(data, exit, maxResets=20, maxDepth=40) {
         // fog[y][x] = false;
         xs.push(x);
         ys.push(y);
-        wallSides(data, x, y, dir);
+        // wallSides(data, x, y, dir);
         if (connectsToHallway(data, x, y, xs, ys)) {
             return true;
         }
@@ -365,7 +366,7 @@ function randomWalk(data, exit, maxResets=20, maxDepth=40) {
             dir = directionFromPosition(x, y, xs, ys, exit);
             depth = xs.length;
         }
-        wallSides(data, x, y, dir);
+        // wallSides(data, x, y, dir);
         dir = rotateDirection(randomNumber, dir);
         depth += 1;
     }
@@ -551,6 +552,48 @@ function addRoom(data, wantedSize, origin) {
     return false;
 }
 
+function makeHallWalls({
+    level,
+    settings: {
+        random: { range: randomRange },
+        size,
+        style: { hallWall },
+    },
+}) {
+    const { rows, columns } = size;
+    const cornerCheckTypes = [TYPES.hall];
+    const isVertical = (x, y) => (x - 1 >= 0 && level[y][x  - 1].type === TYPES.hall) || (x + 1 < columns && level[y][x + 1].type === TYPES.hall);
+    const isHorizontal = (x, y) => (y - 1 >= 0 && level[y - 1][x].type === TYPES.hall) || (y + 1 < rows && level[y + 1][x].type === TYPES.hall);
+    const isCorner = (x, y) => [[-1, -1], [1, -1], [1, 1], [-1 , 1]]
+        .some(([oX, oY]) => validPosition(x + oX, y + oY, size, level, cornerCheckTypes));
+    const posChr = (pos, x, y) => {
+        const horizontal = isHorizontal(x, y);
+        const vertical = isVertical(x, y);
+        // console.log(pos, horizontal, vertical);
+        if (vertical !== horizontal) {
+            if (vertical) {
+                return hallWall.vertical[0];
+            }
+            return hallWall.horizontal[0];
+        }
+        if (vertical) {
+            return hallWall.pillar[randomRange(0, hallWall.pillar.length)];
+        }
+        if (isCorner(x, y)) {
+            return hallWall.corner[0];
+        }
+        return pos.chr;
+    };
+
+    for (let y = 0; y<rows; y++) {
+        for (let x = 0; x<columns; x++) {
+            const pos = level[y][x];
+            if (pos.type !== TYPES.outOfBounds) continue;
+            pos.chr = posChr(pos, x, y);
+        }
+    }
+};
+
 function generateLevel(data) {
     const {
         settings: {
@@ -583,8 +626,10 @@ function generateLevel(data) {
     for (let i=0; i<data.rooms.length; i++) {
         connectRooms(data, i);
     }
-    const startRoom = data.rooms[randomRange(0, data.rooms.length)];
+    makeHallWalls(data);
 
+    // Spawn player
+    const startRoom = data.rooms[randomRange(0, data.rooms.length)];
     data.player = {
         x: randomRange(startRoom.lb.x + 1, startRoom.ub.x),
         y: randomRange(startRoom.lb.y + 1, startRoom.ub.y),
@@ -618,13 +663,13 @@ function addSettings(data) {
         },
         style: {
             wall: {
-                vertical: ['|', 'ǁ'],
+                vertical: ['|'],
                 horizontal: ['—'],
                 corner: {
-                    nw: ['⌌', '⌈'],
-                    ne: ['⌍', '⌉'],
-                    sw: ['⌎','⌊'],
-                    se: ['⌏','⌋'],
+                    nw: ['⌌'],
+                    ne: ['⌍'],
+                    sw: ['⌎'],
+                    se: ['⌏'],
                 },
             },
             ground: [' '],
@@ -636,13 +681,26 @@ function addSettings(data) {
                 w: ['🁪'],
                 e: ['🁪'],
             },
+            hallWall: {
+                pillar: ['🞕', '🞖', '🞔'],
+                corner: ['∷'],
+                vertical: ['⋮'],
+                horizontal: ['⋯'],
+            },
             player: ['💃'],
             enemies: ['👀', '💋', '👣', '🌞', '💩', '💸', '🗿', '🖕', '🎅'],
             shrine: ['🎲'],
-            fight: ['🔥'],
+            fight: ['💥'],
             attack: ['🗡'],
             defence: ['🕀'],
             initiative: ['🕊'],
+            elevator: {
+                up: ['🔼'],
+                down: ['🔽'],
+            },
+            diceValues: [
+                '🀙', '🀚', '🀛', '🀜', '🀝', '🀞', '🀟', '🀠', '🀡',
+            ]
         },
         seed: 'All is random',
     };
