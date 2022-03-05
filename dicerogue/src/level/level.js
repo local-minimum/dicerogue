@@ -2,6 +2,7 @@ import { addRoom, getRandomInternalPosition } from './room';
 import { makeHall, makeHallWalls } from './hall';
 import { TYPES } from './position';
 import { revealPosition, revealRoom } from './reveal';
+import { monstersInRoom } from './monster';
 
 function groupConnections(groups) {
     let grouped = true;
@@ -32,8 +33,12 @@ export function generateLevel(data) {
             style: { outOfBounds, elevator },
         },
     } = data;
+
+    data.depth = (data.depth ?? 0) + 1;
     data.level = [];
     data.fog = [];
+
+    // Fill as fogged out of bounds
     for (let y=0; y < rows; y++) {
         const row = [];
         const fogRow = [];
@@ -47,6 +52,8 @@ export function generateLevel(data) {
         data.level.push(row);
         data.fog.push(fogRow);
     }
+
+    // Add roomss
     addRoom(data, { rows: randomRange(2, 6), columns: randomRange(2, 7) });
     let wantRooms = 10 + randomRange(3, 8) + randomRange(3, 8) + randomRange(3, 8);
     while (wantRooms > 0) {
@@ -88,8 +95,14 @@ export function generateLevel(data) {
             pos.chr = elevator.down[0];
         });
 
+    // Monsters
+    data.monsters = {
+        rooms: data.rooms.map(({ id }) => id === startRoom.id ? [] : monstersInRoom(data)),
+        alive: [],
+    };
+    console.log(data.monsters);
+
     // Finish up
-    data.depth = (data.depth ?? 0) + 1;
     data.ready = true;
     return data;
 }

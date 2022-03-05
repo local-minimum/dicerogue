@@ -1,9 +1,18 @@
 import { defog } from "./cheat";
 import { TYPES, validPosition } from "./position";
 import { revealRoom, revealPosition } from "./reveal";
+import { getRandomInternalPosition } from "./room";
 
 export const handleKeyPress = (evt, stateHolder) => {
-    const { player, ready, level, rooms, fog, settings: { size, style: { ground } } } = stateHolder.data;
+    const {
+        player,
+        ready,
+        level,
+        rooms,
+        monsters,
+        fog,
+        settings: { size, random, style: { ground } },
+    } = stateHolder.data;
     if (!ready || player.moved) return;
     let { x, y, roomID } = player;
     switch (evt.which ?? evt.keyCode) {
@@ -43,8 +52,14 @@ export const handleKeyPress = (evt, stateHolder) => {
             const room = rooms[pos.roomID];
             if (!room.visited) {
                 revealRoom(rooms[pos.roomID], fog);
-                console.log('new room');
                 room.visited = true;
+                monsters.rooms[pos.roomID]
+                    .forEach(m => {
+                        const mPos = getRandomInternalPosition(room, random.range);
+                        if (level[mPos.y][mPos.x].type === TYPES.room) {
+                            monsters.alive.push({ ...m, x: mPos.x, y: mPos.y });
+                        }
+                    });
             }
         }
         revealPosition(x, y, size, fog);

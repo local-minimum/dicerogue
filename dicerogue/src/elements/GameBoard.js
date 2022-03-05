@@ -43,11 +43,21 @@ export class GameBoard extends LitElement {
         const {
             fog,
             player,
+            monsters: { alive },
             settings: {
                 style,
                 random: { range: randomRange },
             },
         } = this.data;
+        for (let i = 0; i < alive.length; i++) {
+            const monster = alive[i];
+            if (monster.x === x && monster.y === y) {
+                if (player.x === x && player.y === y) {
+                    return style.fight[0];
+                }
+                return monster.chr;
+            }
+        }
         if (x === player.x && y === player.y) {
             return style.player[0];
         }
