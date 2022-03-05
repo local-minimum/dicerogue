@@ -29,7 +29,7 @@ export const handleKeyPress = (evt, stateHolder) => {
         default:
             console.log('Unhandled input:', evt.which ?? evt.keyCode);
     }
-    if (validPosition(x, y, size, level, [TYPES.room, TYPES.door, TYPES.hall])) {
+    if (validPosition(x, y, size, level, [TYPES.room, TYPES.door, TYPES.hall, TYPES.interactable])) {
         const pos = level[y][x];
         if (pos.type === TYPES.door) {
             pos.type = TYPES.room;

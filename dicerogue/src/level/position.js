@@ -4,6 +4,7 @@ export const TYPES = {
     hall: 'HALL',
     wall: 'WALL',
     door: 'DOOR',
+    interactable: 'INTERACTABLE',
 };
 
 

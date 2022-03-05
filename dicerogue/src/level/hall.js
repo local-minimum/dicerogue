@@ -26,7 +26,7 @@ function directionFromPosition(x, y, xs, ys, exit) {
 
 function randomWalk(data, exit, maxResets=20, maxDepth=40) {
     const {
-        level, fog,
+        level,
         settings: {
             size: { columns, rows },
             style: { ground, outOfBounds },
@@ -48,7 +48,7 @@ function randomWalk(data, exit, maxResets=20, maxDepth=40) {
         xs.push(x);
         ys.push(y);
         if (connectsToHallway(data, x, y, xs, ys)) {
-            return true;
+            return null;
         }
         x += dir.x;
         y += dir.y;
@@ -62,7 +62,7 @@ function randomWalk(data, exit, maxResets=20, maxDepth=40) {
         );
         if (!invalid && level[y][x].type === TYPES.wall && level[y][x].roomID !== startRoomID) {
             addRoomDoor(data, x, y);
-            return true;
+            return level[y][x].roomID;
         }
         if (invalid || level[y][x].type !== TYPES.outOfBounds) {
             // reset
@@ -105,8 +105,10 @@ export function makeHall(data, roomID) {
                 number: randomNumber,
             },
         },
+        level,
+        rooms,
     } = data;
-    const room = data.rooms[roomID];
+    const room = rooms[roomID];
     const directions = pick(
         ['n', 's', 'w', 'e']
             .filter((dir) => {
@@ -127,6 +129,7 @@ export function makeHall(data, roomID) {
             }),
         randomRange(1, 2) + randomRange(0, 3)
     )
+    const connections = [roomID];
     directions
         .forEach((dir) => {
             const exit = selectExit(data.level, room, dir, randomNumber);
@@ -134,13 +137,18 @@ export function makeHall(data, roomID) {
                 addRoomDoor(data, exit.x, exit.y);
                 if (exit.prio === 2) {
                     addRoomDoor(data, exit.next.x, exit.next.y);
+                    connections.push(level[exit.next.y][exit.next.x].roomID);
                 } else {
-                    if (!randomWalk(data, exit)) {
+                    const connecedRoom = randomWalk(data, exit);
+                    if (connecedRoom === false) {
                         makeWall(data, exit.x, exit.y);
+                    } else if (connecedRoom != null) {
+                        connections.push(connecedRoom);
                     }
                 }
             }
         });
+    return connections;
 }
 
 export function makeHallWalls({

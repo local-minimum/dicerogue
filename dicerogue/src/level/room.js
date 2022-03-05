@@ -255,3 +255,11 @@ export function addRoom(data, wantedSize, origin) {
     }
     return false;
 }
+
+export function getRandomInternalPosition(room, randomRange) {
+    const { lb, ub } = room;
+    return {
+        x: randomRange(lb.x + 1, ub.x - 1),
+        y: randomRange(lb.y + 1, ub.y - 1),
+    };
+}
