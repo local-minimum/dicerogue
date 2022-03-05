@@ -1,4 +1,4 @@
-import { TYPES, validPosition } from './position';
+import { inBounds, TYPES, validPosition } from './position';
 import { rotateDirection } from './direction';
 import { addRoomDoor, makeWall, selectExit } from './room';
 
@@ -22,6 +22,33 @@ function directionFromPosition(x, y, xs, ys, exit) {
         return { x: x - xs[xs.length - 2], y: y - ys[ys.length - 2] };
     }
     return { x: x - exit.x, y: y - exit.y };
+}
+
+function findRoom({ level, settings: { size: { rows, columns } } }, xs, ys) {
+    const visited = xs.map((cx, i) => ({ x: cx, y: ys[i]}));
+    let i = visited.length - 1;
+    while (i < visited.length) {
+        const cur = visited[i];
+        const candidates = [{x: -1, y: 0}, {x: 1, y: 0}, {x:0, y: -1}, {x:0, y: 1}]
+            .map((off) => ({ x: off.x + cur.x, y: off.y + cur.y }))
+            .filter(
+                (pos) => inBounds(pos.x, pos.y, rows, columns)
+                && !visited.some(({x, y}) => x === pos.x && y === pos.y)
+            );
+        for (let j=0; j<candidates.length; j++) {
+            const pos = candidates[j];
+            const cand = level[pos.y][pos.x];
+            switch (cand.type) {
+                case TYPES.door:
+                    return cand.roomID;
+                case TYPES.hall:
+                    visited.push(pos);
+            }
+        }
+        i++;
+    }
+    console.log('Found no room at end of hall', visited);
+    return null
 }
 
 function randomWalk(data, exit, maxResets=20, maxDepth=40) {
@@ -48,7 +75,7 @@ function randomWalk(data, exit, maxResets=20, maxDepth=40) {
         xs.push(x);
         ys.push(y);
         if (connectsToHallway(data, x, y, xs, ys)) {
-            return null;
+            return findRoom(data, xs, ys);
         }
         x += dir.x;
         y += dir.y;

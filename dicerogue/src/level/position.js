@@ -22,6 +22,10 @@ export function isOfType(level, lb, ub, type) {
     return level[y][x].type === type;
 }
 
+export function inBounds(x, y, rows, columns) {
+    return x >= 0 && x < columns && y >= 0 && y < rows;
+}
+
 export function validPosition(x, y, { rows, columns}, level, allowedTypes) {
-    return x >= 0 && x < columns && y >= 0 && y < rows && allowedTypes.some(t => level[y][x].type === t);
+    return inBounds(x, y, rows, columns) && allowedTypes.some(t => level[y][x].type === t);
 }

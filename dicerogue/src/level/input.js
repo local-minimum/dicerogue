@@ -1,3 +1,4 @@
+import { defog } from "./cheat";
 import { TYPES, validPosition } from "./position";
 import { revealRoom, revealPosition } from "./reveal";
 
@@ -25,6 +26,9 @@ export const handleKeyPress = (evt, stateHolder) => {
         case 39: // RIGHT
             x += 1;
             evt.preventDefault();
+            break;
+        case 82:
+            defog(fog);
             break;
         default:
             console.log('Unhandled input:', evt.which ?? evt.keyCode);

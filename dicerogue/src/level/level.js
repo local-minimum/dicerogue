@@ -4,7 +4,9 @@ import { TYPES } from './position';
 import { revealPosition, revealRoom } from './reveal';
 
 function groupConnections(groups) {
-    for (let x = 0; x<2; x++) {
+    let grouped = true;
+    while (grouped) {
+        grouped = false;
         for (let i=0; i<groups.length; i++) {
             let g = groups[i];
             for (let j=i+1; j<groups.length; j++) {
@@ -13,6 +15,7 @@ function groupConnections(groups) {
                     g = [...g, ...g2.filter(v => !g.some(vv => v === vv))]
                     groups.splice(j, 1);
                     j--;
+                    grouped = true;
                 }
             }
             groups[i] = g;
@@ -57,6 +60,7 @@ export function generateLevel(data) {
         connections.push(makeHall(data, i));
     }
     data.roomGroups = groupConnections(connections);
+    console.log('Groups of rooms', data.roomGroups);
 
     makeHallWalls(data);
 
@@ -77,7 +81,7 @@ export function generateLevel(data) {
             const candidateRooms = group.filter((r) => r !== startRoom.id);
             const downRoomID = candidateRooms[randomRange(0, candidateRooms.length)];
             const downRoom = data.rooms[downRoomID];
-            const stairs = getRandomInternalPosition(downRoom, randomRange);
+            const stairs = getRandomInternalPosition(downRoom, randomRange, 1);
             data.stairs = [...(data.stairs ?? []), { down: true, ...stairs}];
             const pos = data.level[stairs.y][stairs.x];
             pos.type = TYPES.interactable;
