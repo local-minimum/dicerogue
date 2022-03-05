@@ -46,7 +46,10 @@ export function generateLevel(data) {
     };
 
     revealRoom(startRoom, data.fog);
+    startRoom.visited = true;
     revealPosition(data.player.x, data.player.y, { columns, rows }, data.fog);
 
+    data.depth = (data.depth ?? 0) + 1;
     data.ready = true;
+    return data;
 }

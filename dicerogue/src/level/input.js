@@ -39,6 +39,7 @@ export const handleKeyPress = (evt, stateHolder) => {
             const room = rooms[pos.roomID];
             if (!room.visited) {
                 revealRoom(rooms[pos.roomID], fog);
+                console.log('new room');
                 room.visited = true;
             }
         }
