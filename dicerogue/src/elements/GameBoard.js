@@ -1,7 +1,9 @@
 import { html, css, LitElement } from "lit";
 import { handleKeyPress } from "../level/input";
 import { generateLevel } from "../level/level";
+import { TYPES } from "../level/position";
 import { addSettings } from "../level/settings";
+import { findPath } from "../utilities/search";
 import './GameTile';
 
 const REFRESH_RATE = 150;
@@ -26,8 +28,24 @@ export class GameBoard extends LitElement {
         super();
     }
 
+
+
     handleGameTick = () => {
-        this.data.player.moved = false;
+        const { player, monsters: { alive }, level } = this.data;
+        const permissable = ({ type }) => type === TYPES.hall || type === TYPES.room;
+        alive
+            .forEach((monster) => {
+                monster.tick += 1;
+                if (monster.tick < monster.speed) return;
+
+                const path = findPath(monster, player, level, permissable, monster.sight);
+                if (path != null && path.length > 1) {
+                    monster.x = path[1][0];
+                    monster.y = path[1][1];
+                }
+                monster.tick = 0;
+            })
+        player.moved = false;
         this.requestUpdate();
     }
 

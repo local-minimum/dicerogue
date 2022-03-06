@@ -7,10 +7,14 @@ export function addSettings(data) {
         seed,
         n: 0,
     };
+    const range = (min, exclusiveMax) => {
+        _randomInfo.n++;
+        return Math.min(Math.floor(min + (exclusiveMax - min) * rng()), exclusiveMax);
+    }
     const random = {
         _randomInfo,
         number: function() { _randomInfo.n++; return rng(); },
-        range: function(min, exclusiveMax) { _randomInfo.n++; return Math.min(Math.floor(min + (exclusiveMax - min) * rng()), exclusiveMax); },
+        range,
         pick: function(arr, count) {
             const items = [...(new Array(arr.length).keys())];
             items.sort(() => { _randomInfo.n++; return rng() > 0.5;});
@@ -18,6 +22,14 @@ export function addSettings(data) {
                 .slice(0, count)
                 .map((i) => arr[i]);
         },
+        dice: function(name, intermediateStates = 0, consolidate=true) {
+            const throws = name.split(',').map(v => v.split('-').map((i) => Number.parseInt(i, 10)));
+            const throwDice = () => consolidate
+                ? throws.reduce((acc, [lb, ub]) => acc + range(lb, ub + 1), 0)
+                : throws.map(([lb, ub]) => range(lb, ub + 1));
+            if (intermediateStates === 0) return throwDice();
+            return [...new Array(intermediateStates + 1).keys()].map(() => throwDice());
+        }
     };
 
     data.settings = {
@@ -53,7 +65,6 @@ export function addSettings(data) {
                 horizontal: ['⋯'],
             },
             player: ['💃'],
-            monsters: ['👀', '💋', '👣', '🌞', '💩', '💸', '🗿', '🖕', '🎅'],
             shrine: ['🎲'],
             fight: ['💥'],
             attack: ['🗡'],
