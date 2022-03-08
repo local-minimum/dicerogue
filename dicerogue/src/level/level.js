@@ -99,6 +99,7 @@ export function generateLevel(data) {
     data.monsters = {
         rooms: data.rooms.map(({ id }) => id === startRoom.id ? [] : monstersInRoom(data)),
         alive: [],
+        fighting: [],
     };
     console.log(data.monsters);
 

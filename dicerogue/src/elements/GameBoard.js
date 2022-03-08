@@ -31,21 +31,35 @@ export class GameBoard extends LitElement {
 
 
     handleGameTick = () => {
-        const { player, monsters: { alive }, level } = this.data;
+        const { player, monsters: { alive, fighting }, level } = this.data;
         const permissable = ({ type }) => type === TYPES.hall || type === TYPES.room;
-        alive
-            .forEach((monster) => {
-                monster.tick += 1;
-                if (monster.tick < monster.speed) return;
-
+        // Delayed fight start by one tick
+        if (fighting.length > 0) {
+            player.fighting = true;
+        } else if (player.fighting) {
+            player.fighting = false;
+        }
+        // Check monster move and player collision
+        for (let idx=0; idx<alive.length; idx++) {
+            const monster = alive[idx];
+            monster.tick += 1;
+            if (monster.tick >= monster.speed) {
                 const path = findPath(monster, player, level, permissable, monster.sight);
                 if (path != null && path.length > 1) {
                     monster.x = path[1][0];
                     monster.y = path[1][1];
                 }
                 monster.tick = 0;
-            })
-        player.moved = false;
+            }
+            if (monster.x === player.x && monster.y === player.y) {
+                alive.splice(idx, 1);
+                fighting.push(monster);
+                idx--;
+            }
+        }
+
+        // If not triggering fight allow player to move again
+        player.moved = fighting.length > 0;
         this.requestUpdate();
     }
 
@@ -59,24 +73,26 @@ export class GameBoard extends LitElement {
 
     getChr(pos, x, y) {
         const {
+            overlay,
             fog,
             player,
-            monsters: { alive },
+            monsters: { alive, fighting },
             settings: {
                 style,
                 random: { range: randomRange },
             },
         } = this.data;
+        if (player.fighting) {
+            return overlay?.[y]?.[x] ?? style.attack[0];
+        }
         for (let i = 0; i < alive.length; i++) {
             const monster = alive[i];
             if (monster.x === x && monster.y === y) {
-                if (player.x === x && player.y === y) {
-                    return style.fight[0];
-                }
                 return monster.chr;
             }
         }
         if (x === player.x && y === player.y) {
+            if (fighting.length > 0) return style.fight[0];
             return style.player[0];
         }
         if (fog[y][x]) {
