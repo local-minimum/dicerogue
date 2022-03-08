@@ -3,6 +3,7 @@ import { handleKeyPress } from "../level/input";
 import { generateLevel } from "../level/level";
 import { TYPES } from "../level/position";
 import { addSettings } from "../level/settings";
+import { blitFramedRect, createEmpty, writeInRect } from "../utilities/overlay";
 import { findPath } from "../utilities/search";
 import './GameTile';
 
@@ -31,11 +32,37 @@ export class GameBoard extends LitElement {
 
 
     handleGameTick = () => {
-        const { player, monsters: { alive, fighting }, level } = this.data;
+        const {
+            player,
+            monsters: { alive, fighting },
+            level,
+            settings: { size, style },
+        } = this.data;
         const permissable = ({ type }) => type === TYPES.hall || type === TYPES.room;
         // Delayed fight start by one tick
         if (fighting.length > 0) {
-            player.fighting = true;
+            // Init fight
+            if (!player.fighting) {
+                player.fighting = true;
+                const overlay = createEmpty(size);
+                this.data.overlay = overlay;
+            }
+            const monster = fighting[0];
+            const monsterLB = { y: 2, x: 25 };
+            const monsterUB = { y: 15, x: 38 };
+            blitFramedRect(this.data.overlay, monsterLB, monsterUB, style.wall);
+            writeInRect(
+                this.data.overlay,
+                monsterLB,
+                monsterUB,
+                [
+                    { text: monster.name, align: 'center' },
+                    { text: ' ', align: 'left'},
+                    { text: `${monster.chr} ${monster.chr}  ${monster.chr} ${monster.chr}`, align: 'center' },
+                    { text: ' ', align: 'left'},
+                    { text: `Health: ${monster.health}`, align: 'left' },
+                ]
+            )
         } else if (player.fighting) {
             player.fighting = false;
         }
