@@ -50,6 +50,17 @@ export function countMonsterTypes() {
     return PROTOTYPES.length;
 }
 
+function extrapolateDie(levels, level) {
+    const idx = Math.min(levels.length - 1, level);
+    const die = levels[idx];
+    if (idx <= 0) return die;
+    const delta = level - idx;
+    return die
+        .split(',')
+        .map(v => v.split('-').map((i) => `${Number.parseInt(i, 10) + delta}`).join('-'))
+        .join(',');
+}
+
 export function getMonsterStats(type, level, randomDice) {
     const {
         name,
@@ -64,11 +75,11 @@ export function getMonsterStats(type, level, randomDice) {
 
     return {
         name,
-        initiative: initiative[Math.min(initiative.length - 1, level)],
-        attack: attack[Math.min(attack.length - 1, level)],
-        defence: defence[Math.min(defence.length - 1, level)],
-        health: randomDice(health[Math.min(health.length - 1, level)]),
-        speed: randomDice(speed[Math.min(speed.length - 1, level)]),
+        initiative: extrapolateDie(initiative, level),
+        attack: extrapolateDie(attack, level),
+        defence: extrapolateDie(defence, level),
+        health: randomDice(extrapolateDie(health, level)),
+        speed: randomDice(extrapolateDie(speed, level)),
         chr,
         sight,
     };
