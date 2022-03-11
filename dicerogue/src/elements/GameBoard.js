@@ -48,6 +48,8 @@ export class GameBoard extends LitElement {
                 this.data.overlay = overlay;
             }
             const monster = fighting[0];
+
+            // Blit monster stats
             const monsterLB = { y: 2, x: 25 };
             const monsterUB = { y: 15, x: 38 };
             blitFramedRect(this.data.overlay, monsterLB, monsterUB, style.wall);
@@ -57,10 +59,15 @@ export class GameBoard extends LitElement {
                 monsterUB,
                 [
                     { text: monster.name, align: 'center' },
-                    { text: ' ', align: 'left'},
+                    { text: ' ' },
                     { text: `${monster.chr} ${monster.chr}  ${monster.chr} ${monster.chr}`, align: 'center' },
-                    { text: ' ', align: 'left'},
-                    { text: `Health: ${monster.health}`, align: 'left' },
+                    { text: ' ' },
+                    { text: `Level  : ${monster.lvl}` },
+                    { text: `Health : ${monster.health}` },
+                    { text: ' ' },
+                    { text: `${style.initiative[0]} ${monster.initiative}` },
+                    { text: `${style.attack[0]} ${monster.attack}` },
+                    { text: `${style.defence[0]} ${monster.defence}` },
                 ]
             )
         } else if (player.fighting) {

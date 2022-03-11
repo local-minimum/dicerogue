@@ -31,12 +31,12 @@ export function blitFramedRect(overlay, lb, ub, frameStyle, fill=' ', version=0)
     }
 }
 
-function wrapText(text, maxWidth) {
+function wrapText(text, maxWidth, thresholdWrapOnSpace = 0.7) {
     const arr = [...text];
     const rows = [];
     while (true) {
         const idxSpace = arr.slice(0, maxWidth).lastIndexOf(' ');
-        let row = arr.splice(0, idxSpace / maxWidth > .7 ? idxSpace : maxWidth);
+        let row = arr.splice(0, idxSpace / maxWidth > thresholdWrapOnSpace ? idxSpace : maxWidth);
         row = [...row.join('').trim()];
         rows.push(row);
         if (arr.length === 0) break;
@@ -46,16 +46,15 @@ function wrapText(text, maxWidth) {
 
 function padLine(line, maxWidth, align, padChr=' ') {
     switch (align) {
-        case 'left':
-            return line.concat([...new Array(maxWidth - line.length).keys()].map(() => padChr))
         case 'right':
             return [...new Array(maxWidth - line.length).keys()].map(() => padChr).concat(line);
         case 'center':
             return [...new Array(Math.floor((maxWidth - line.length) / 2)).keys()].map(() => padChr)
                 .concat(line)
                 .concat([...new Array(Math.ceil((maxWidth - line.length) / 2)).keys()].map(() => padChr));
+        case 'left':
         default:
-            return line;
+            return line.concat([...new Array(maxWidth - line.length).keys()].map(() => padChr))
     }
 }
 
@@ -67,10 +66,9 @@ export function writeInRect(overlay, lb, ub, contents, padding=1, padChr=' ') {
         const { text, align } = contents[cRow];
         const wrappedTextRows = wrapText(text, width);
         for (let r=0; r<wrappedTextRows.length && y<=maxY; r++) {
-            y++;
             padLine(wrappedTextRows[r], width, align, padChr)
                 .map((chr, column) => { overlay[y][lb.x + padding + column] = chr; })
-
+            y++;
         }
     }
 }
